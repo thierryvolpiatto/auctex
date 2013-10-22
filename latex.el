@@ -1832,7 +1832,7 @@ OPTIONAL and IGNORE are ignored."
 	LaTeX-style-list))
     (setq style (completing-read
 		 (concat "Document class: (default " LaTeX-default-style ") ")
-		 LaTeX-global-class-files))
+		 LaTeX-global-class-files nil nil nil nil LaTeX-default-style))
     (if (zerop (length style))
 	(setq style LaTeX-default-style))
     ;; Clean up hook before use.
