@@ -2657,7 +2657,7 @@ is called with \\[universal-argument]."
 					      "): "
 					      TeX-esc)
 				      (TeX-symbol-list) nil nil nil
-				      'TeX-macro-history)))
+				      'TeX-macro-history TeX-default-macro)))
   (cond ((string-equal symbol "")
 	 (setq symbol TeX-default-macro))
 	((interactive-p)
