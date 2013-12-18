@@ -540,8 +540,8 @@ It may be customized with the following variables:
 		   (t LaTeX-default-environment)))
     (environment (completing-read (concat "Environment type: (default "
 					  default ") ")
-				  (LaTeX-environment-list) nil nil nil
-				  'LaTeX-environment-history)))
+				  (LaTeX-environment-list) nil t nil
+				  'LaTeX-environment-history default)))
     ;; Get default
     (cond ((zerop (length environment))
 	   (setq environment default))
