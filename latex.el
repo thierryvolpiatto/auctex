@@ -1,6 +1,6 @@
 ;;; latex.el --- Support for LaTeX documents.
 
-;; Copyright (C) 1991, 1993-2013 Free Software Foundation, Inc.
+;; Copyright (C) 1991, 1993-2014 Free Software Foundation, Inc.
 
 ;; Maintainer: auctex-devel@gnu.org
 ;; Keywords: tex
@@ -540,13 +540,9 @@ It may be customized with the following variables:
 		   (t LaTeX-default-environment)))
     (environment (completing-read (concat "Environment type: (default "
 					  default ") ")
-				  (LaTeX-environment-list) nil t nil
+				  (LaTeX-environment-list-filtered) nil nil nil
 				  'LaTeX-environment-history default)))
-    ;; Get default
-    (cond ((zerop (length environment))
-	   (setq environment default))
-	  (t
-	   (setq LaTeX-default-environment environment)))
+    (setq LaTeX-default-environment environment)
 
     (let ((entry (assoc environment (LaTeX-environment-list))))
       (if (null entry)
@@ -736,7 +732,8 @@ The functions `LaTeX-find-matching-begin' and `LaTeX-find-matching-end'
 work analogously."
   (setq arg (if arg (if (< arg 1) 1 arg) 1))
   (let* ((in-comment (TeX-in-commented-line))
-	 (comment-prefix (and in-comment (TeX-comment-prefix))))
+	 (comment-prefix (and in-comment (TeX-comment-prefix)))
+	 (case-fold-search nil))
     (save-excursion
       (while (and (/= arg 0)
 		  (re-search-backward
@@ -756,12 +753,13 @@ work analogously."
 
 (defun docTeX-in-macrocode-p ()
   "Determine if point is inside a macrocode environment."
-  (save-excursion
-    (re-search-backward
-     (concat "^%    " (regexp-quote TeX-esc)
-	     "\\(begin\\|end\\)[ \t]*{macrocode\\*?}") nil 'move)
-    (not (or (bobp)
-	     (= (char-after (match-beginning 1)) ?e)))))
+  (let ((case-fold-search nil))
+    (save-excursion
+      (re-search-backward
+       (concat "^%    " (regexp-quote TeX-esc)
+	       "\\(begin\\|end\\)[ \t]*{macrocode\\*?}") nil 'move)
+      (not (or (bobp)
+	       (= (char-after (match-beginning 1)) ?e))))))
 
 
 ;;; Environment Hooks
@@ -1833,8 +1831,6 @@ OPTIONAL and IGNORE are ignored."
     (setq style (completing-read
 		 (concat "Document class: (default " LaTeX-default-style ") ")
 		 LaTeX-global-class-files nil nil nil nil LaTeX-default-style))
-    (if (zerop (length style))
-	(setq style LaTeX-default-style))
     ;; Clean up hook before use.
     (setq TeX-after-document-hook nil)
     (TeX-run-style-hooks style)
@@ -2061,6 +2057,9 @@ string."
 					'bibinputs 'local t t))
 			 BibTeX-global-files))))
     (apply 'LaTeX-add-bibliographies styles)
+    ;; Run style files associated to the bibliography database files in order to
+    ;; immediately fill `LaTeX-bibitem-list'.
+    (mapc 'TeX-run-style-hooks styles)
     (TeX-argument-insert (mapconcat 'identity styles ",") optional)))
 
 (defun TeX-arg-corner (optional &optional prompt)
@@ -2848,6 +2847,7 @@ outer indentation in case of a commented line.  The symbols
     (LaTeX-back-to-indentation force-type)
     (let ((i 0)
 	  (list-length (safe-length docTeX-indent-inner-fixed))
+	  (case-fold-search nil)
 	  entry
 	  found)
       (cond ((save-excursion (beginning-of-line) (bobp)) 0)
@@ -3927,7 +3927,8 @@ environment in commented regions with the same comment prefix."
   (let* ((regexp (concat (regexp-quote TeX-esc) "\\(begin\\|end\\)\\b"))
 	 (level 1)
 	 (in-comment (TeX-in-commented-line))
-	 (comment-prefix (and in-comment (TeX-comment-prefix))))
+	 (comment-prefix (and in-comment (TeX-comment-prefix)))
+	 (case-fold-search nil))
     (save-excursion
       (skip-chars-backward "a-zA-Z \t{")
       (unless (bolp)
@@ -3961,7 +3962,8 @@ environment in commented regions with the same comment prefix."
   (let* ((regexp (concat (regexp-quote TeX-esc) "\\(begin\\|end\\)\\b"))
 	 (level 1)
 	 (in-comment (TeX-in-commented-line))
-	 (comment-prefix (and in-comment (TeX-comment-prefix))))
+	 (comment-prefix (and in-comment (TeX-comment-prefix)))
+	 (case-fold-search nil))
     (skip-chars-backward "a-zA-Z \t{")
     (unless (bolp)
       (backward-char 1)
@@ -4960,19 +4962,23 @@ commands are defined:
   :type 'function)
 
 (defun LaTeX-math-insert (string dollar)
-  "Insert \\STRING{}.  If DOLLAR is non-nil, put $'s around it."
-  (if dollar (insert "$"))
+  "Insert \\STRING{}.  If DOLLAR is non-nil, put $'s around it.
+If `TeX-electric-math' is non-nil wrap that symbols around the
+string."
+  (if dollar (insert (or (car TeX-electric-math) "$")))
   (funcall LaTeX-math-insert-function string)
-  (if dollar (insert "$")))
+  (if dollar (insert (or (cdr TeX-electric-math) "$"))))
 
 (defun LaTeX-math-cal (char dollar)
-  "Insert a {\\cal CHAR}.  If DOLLAR is non-nil, put $'s around it."
+  "Insert a {\\cal CHAR}.  If DOLLAR is non-nil, put $'s around it.
+If `TeX-electric-math' is non-nil wrap that symbols around the
+char."
   (interactive "*c\nP")
-  (if dollar (insert "$"))
+  (if dollar (insert (or (car TeX-electric-math) "$")))
   (if (member "latex2e" (TeX-style-list))
       (insert "\\mathcal{" (char-to-string char) "}")
     (insert "{\\cal " (char-to-string char) "}"))
-  (if dollar (insert "$")))
+  (if dollar (insert (or (cdr TeX-electric-math) "$"))))
 
 
 ;;; Folding
@@ -5017,6 +5023,25 @@ commands are defined:
 			(repeat :tag "Math Macros" (string))))
   :group 'TeX-fold)
 
+;;; Narrowing
+
+(defun LaTeX-narrow-to-environment (&optional count)
+  "Make text outside current environment invisible.
+With optional COUNT keep visible that number of enclosing
+environmens."
+  (interactive "p")
+  (setq count (if count (abs count) 1))
+  (save-excursion
+    (widen)
+    (let ((opoint (point))
+	  beg end)
+      (dotimes (c count) (LaTeX-find-matching-end))
+      (setq end (point))
+      (goto-char opoint)
+      (dotimes (c count) (LaTeX-find-matching-begin))
+      (setq beg (point))
+      (narrow-to-region beg end))))
+(put 'LaTeX-narrow-to-environment 'disabled t)
 
 ;;; Keymap
 
@@ -5593,7 +5618,7 @@ i.e. you do _not_ have to cater for this yourself by adding \\\\' or $."
   (setq paragraph-separate
 	(concat
 	 "[ \t]*%*[ \t]*\\("
-	 "\\$\\$" ; Plain TeX display math
+	 "\\$\\$"			; Plain TeX display math
 	 "\\|$\\)"))
 
   (setq TeX-verbatim-p-function 'LaTeX-verbatim-p)
@@ -5620,12 +5645,12 @@ i.e. you do _not_ have to cater for this yourself by adding \\\\' or $."
 		  ("\\\\pageref{\\([^{}\n\r\\%,]*\\)" 1 LaTeX-label-list "}")
 		  ("\\\\\\(index\\|glossary\\){\\([^{}\n\r\\%]*\\)"
 		   2 LaTeX-index-entry-list "}")
-		  ("\\\\begin{\\([A-Za-z]*\\)" 1 LaTeX-environment-list "}")
-		  ("\\\\end{\\([A-Za-z]*\\)" 1 LaTeX-environment-list "}")
+		  ("\\\\begin{\\([A-Za-z]*\\)" 1 LaTeX-environment-list-filtered "}")
+		  ("\\\\end{\\([A-Za-z]*\\)" 1 LaTeX-environment-list-filtered "}")
 		  ("\\\\renewcommand\\*?{\\\\\\([A-Za-z]*\\)"
-		   1 LaTeX-symbol-list "}")
+		   1 TeX-symbol-list-filtered "}")
 		  ("\\\\renewenvironment\\*?{\\([A-Za-z]*\\)"
-		   1 LaTeX-environment-list "}")
+		   1 LaTeX-environment-list-filtered "}")
                   ("\\\\\\(this\\)?pagestyle{\\([A-Za-z]*\\)"
 		   1 LaTeX-pagestyle-list "}"))
 		TeX-complete-list))
@@ -5942,19 +5967,19 @@ i.e. you do _not_ have to cater for this yourself by adding \\\\' or $."
      '("documentclass" TeX-arg-document)))
 
   (TeX-add-style-hook "latex2e"
-   ;; Use new fonts for `\documentclass' documents.
-   (lambda ()
-     (setq TeX-font-list LaTeX-font-list)
-     (setq TeX-font-replace-function 'TeX-font-replace-macro)
-     (run-hooks 'LaTeX2e-hook)))
+		      ;; Use new fonts for `\documentclass' documents.
+		      (lambda ()
+			(setq TeX-font-list LaTeX-font-list)
+			(setq TeX-font-replace-function 'TeX-font-replace-macro)
+			(run-hooks 'LaTeX2e-hook)))
 
   (TeX-add-style-hook "latex2"
-   ;; Use old fonts for `\documentstyle' documents.
-   (lambda ()
-     (setq TeX-font-list (default-value 'TeX-font-list))
-     (setq TeX-font-replace-function
-	   (default-value 'TeX-font-replace-function))
-     (run-hooks 'LaTeX2-hook)))
+		      ;; Use old fonts for `\documentstyle' documents.
+		      (lambda ()
+			(setq TeX-font-list (default-value 'TeX-font-list))
+			(setq TeX-font-replace-function
+			      (default-value 'TeX-font-replace-function))
+			(run-hooks 'LaTeX2-hook)))
 
   ;; There must be something better-suited, but I don't understand the
   ;; parsing properly.  -- dak
@@ -5962,22 +5987,22 @@ i.e. you do _not_ have to cater for this yourself by adding \\\\' or $."
   (TeX-add-style-hook "pdftricks" 'TeX-PDF-mode-on)
   (TeX-add-style-hook "pst-pdf" 'TeX-PDF-mode-on)
   (TeX-add-style-hook "dvips" 'TeX-PDF-mode-off)
-;; This is now done in style/pstricks.el because it prevents other
-;; pstricks style files from being loaded.
-;;   (TeX-add-style-hook "pstricks" 'TeX-PDF-mode-off)
+  ;; This is now done in style/pstricks.el because it prevents other
+  ;; pstricks style files from being loaded.
+  ;;   (TeX-add-style-hook "pstricks" 'TeX-PDF-mode-off)
   (TeX-add-style-hook "psfrag" 'TeX-PDF-mode-off)
   (TeX-add-style-hook "dvipdf" 'TeX-PDF-mode-off)
   (TeX-add-style-hook "dvipdfm" 'TeX-PDF-mode-off)
-;;  (TeX-add-style-hook "DVIoutput" 'TeX-PDF-mode-off)
-;;
-;;  Well, DVIoutput indicates that we want to run PDFTeX and expect to
-;;  get DVI output.  Ugh.
+  ;;  (TeX-add-style-hook "DVIoutput" 'TeX-PDF-mode-off)
+  ;;
+  ;;  Well, DVIoutput indicates that we want to run PDFTeX and expect to
+  ;;  get DVI output.  Ugh.
   (TeX-add-style-hook "ifpdf" (lambda ()
 				(TeX-PDF-mode-on)
 				(TeX-PDF-mode-off)))
-;; ifpdf indicates that we cater for either.  So calling both
-;; functions will make sure that the default will get used unless the
-;; user overrode it.
+  ;; ifpdf indicates that we cater for either.  So calling both
+  ;; functions will make sure that the default will get used unless the
+  ;; user overrode it.
 
   (set (make-local-variable 'imenu-create-index-function)
        'LaTeX-imenu-create-index-function)
@@ -5989,7 +6014,16 @@ i.e. you do _not_ have to cater for this yourself by adding \\\\' or $."
   ;; late in mode initialization to assure that all relevant variables
   ;; are properly initialized before style files try to alter them.
   (easy-menu-add LaTeX-mode-menu LaTeX-mode-map)
-  (easy-menu-add LaTeX-mode-command-menu LaTeX-mode-map))
+  (easy-menu-add LaTeX-mode-command-menu LaTeX-mode-map)
+
+  (define-key LaTeX-mode-map "\C-xne" 'LaTeX-narrow-to-environment)
+
+  ;; AUCTeX's brace pairing feature (`LaTeX-electric-left-right-brace') doesn't
+  ;; play nice with `electric-pair-mode' which is a global minor mode as of
+  ;; emacs 24.4.
+  (when (and LaTeX-electric-left-right-brace
+	     (boundp 'electric-pair-mode))
+    (set (make-local-variable 'electric-pair-mode) nil)))
 
 (defun LaTeX-imenu-create-index-function ()
   "Imenu support function for LaTeX."

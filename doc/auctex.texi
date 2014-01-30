@@ -163,6 +163,7 @@ Controlling Screen Display
 * Font Locking::                Font Locking
 * Folding::                     Folding Macros and Environments
 * Outline::                     Outlining the Document
+* Narrowing::                   Restricting display and editing to a portion of the buffer
 
 Font Locking
 
@@ -868,6 +869,21 @@ document, @AUCTeX{} will default to insert a `document' environment.
 Most of these are described further in the following sections, and you
 may easily specify more.  @xref{Customizing Environments}.
 
+@AUCTeX{} distinguishes normal and expert environments.  By default, it
+will offer completion only for normal environments.  This behavior is
+controlled by the user option @code{TeX-complete-expert-commands}.
+
+@defopt TeX-complete-expert-commands
+Complete macros and environments marked as expert commands.
+
+Possible values are nil, t, or a list of style names.
+
+  - nil           Don't complete expert commands (default).
+  - t             Always complete expert commands.
+  - (STYLES ...)  Only complete expert commands of STYLES.
+@end defopt
+
+
 @menu
 * Equations::                   Equations
 * Floats::                      Floats
@@ -1230,6 +1246,21 @@ use its value to decided what to do, whatever the value of the variable
 Completions work because @AUCTeX{} can analyze @TeX{} files, and store
 symbols in Emacs Lisp files for later retrieval.  @xref{Automatic}, for
 more information.
+
+@AUCTeX{} distinguishes normal and expert macros.  By default, it will
+offer completion only for normal commands.  This behavior can be
+controlled using the user option @code{TeX-complete-expert-commands}.
+
+@defopt TeX-complete-expert-commands
+Complete macros and environments marked as expert commands.
+
+Possible values are nil, t, or a list of style names.
+
+  - nil           Don't complete expert commands (default).
+  - t             Always complete expert commands.
+  - (STYLES ...)  Only complete expert commands of STYLES.
+@end defopt
+
 
 @cindex \cite, completion of
 @cindex Bib@TeX{}, completion
@@ -1677,10 +1708,15 @@ for Emacs' outline mode which lets you narrow the buffer content to
 certain sections of your text by hiding the parts not belonging to these
 sections.
 
+Moreover, you can focus in a specific portion of the code by narrowing
+the buffer to the desired region.  @AUCTeX{} provides also functions to
+narrow the buffer to the current group and to @LaTeX{} environments.
+
 @menu
 * Font Locking::                Font Locking
 * Folding::                     Folding Macros and Environments
 * Outline::                     Outlining the Document
+* Narrowing::                   Restricting display and editing to a portion of the buffer
 @end menu
 
 @node Font Locking
@@ -2181,11 +2217,22 @@ forced fontification by customizing the variable
 @code{TeX-fold-force-fontify}.
 @end defopt
 
+@defopt TeX-fold-auto
+By default, a macro inserted with @code{TeX-insert-macro} (@kbd{C-c
+C-m}) will not be folded.  Set this variable to a non-nil value to
+aumatically fold macros as soon as they are inserted.
+@end defopt
+
 @defopt TeX-fold-preserve-comments
 By default items found in comments will be folded.  If your comments
 often contain unfinished code this might lead to problems.  Give this
 variable a non-nil value and foldable items in your comments will be
 left alone.
+@end defopt
+
+@defopt TeX-fold-unfold-around-mark
+When this variable is non-nil and there is an active regione, text
+around the mark will be kept unfolded.
 @end defopt
 
 @deffn Command TeX-fold-region
@@ -2404,6 +2451,34 @@ and @samp{\item} being below @samp{\subparagraph}.
 You may want to check out the unbundled @file{out-xtra} package for even
 better outline support.  It is available from your favorite emacs lisp
 archive.
+
+@node Narrowing
+@section Narrowing
+
+Sometimes you want to focus your attention to a limited region of the
+code.  You can do that by restricting the text addressable by editing
+commands and hiding the rest of the buffer with the narrowing functions,
+@pxref{Narrowing,,,emacs,GNU Emacs Manual}.  In addition, AUCTeX
+provides a couple of other commands to narrow the buffer to a group,
+i.e. a region enclosed in a pair of curly braces, and to @LaTeX{}
+environments.
+
+@deffn Command TeX-narrow-to-group
+@kindex C-x n g
+(@kbd{C-x n g}) Make text outside current group invisible.
+@end deffn
+
+@deffn Command LaTeX-narrow-to-environment @var{count}
+@kindex C-x n e
+(@kbd{C-x n e}) Make text outside current environment invisible.  With
+optional argument @var{count} keep visible that number of enclosing
+environmens.
+@end deffn
+
+Like other standard narrowing functions, the above commands are
+disabled.  Attempting to use them asks for confirmation and gives you
+the option of enabling them; if you enable the commands, confirmation
+will no longer be required for them.
 
 @node Processing
 @chapter Starting Processors, Viewers and Other Programs
@@ -4324,6 +4399,17 @@ inserting.  If you want point to be located somewhere else after all
 hooks have been processed, set the value of @code{exit-mark}.  It will
 point nowhere, until the argument hook sets it.
 
+Some packages provide macros that are rarely useful to non-expert users.
+Those should be marked as expert macros using
+@code{TeX-declare-expert-macros}.
+
+@defun TeX-declare-expert-macros @var{style} @var{macros}...
+Declare MACROS as expert macros of STYLE.
+
+Expert macros are completed depending on `TeX-complete-expert-commands'.
+@end defun
+
+
 @node Adding Environments
 @subsection Adding Support for Environments
 @cindex Adding environments
@@ -4461,6 +4547,17 @@ an optional argument of the @samp{lstlisting} environment:
    [TeX-arg-key-val LaTeX-listings-key-val-options]))
 @end lisp
 @end ftable
+
+Some packages provide environments that are rarely useful to non-expert
+users.  Those should be marked as expert environments using
+@code{LaTeX-declare-expert-environments}.
+
+@defun LaTeX-declare-expert-environments @var{style} @var{ENVIRONMENTS}...
+Declare ENVIRONMENTS as expert environments of STYLE.
+
+Expert environments are completed depending on `TeX-complete-expert-commands'.
+@end defun
+
 
 @node Adding Other
 @subsection Adding Other Information

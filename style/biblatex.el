@@ -169,6 +169,10 @@ string."
 					   inputs 'local t nil))
 			    (symbol-value files))))
     (LaTeX-add-bibliographies database)
+    ;; Run style file associated to the bibliography database file in order to
+    ;; immediately fill `LaTeX-bibitem-list'.  We need to strip the extension
+    ;; because AUCTeX style files don't use it.
+    (TeX-run-style-hooks (file-name-sans-extension database))
     (TeX-argument-insert database optional)))
 
 ;; Support for multicite commands, see § 3.7.3 of Biblatex reference manual.
@@ -249,26 +253,26 @@ for citation keys."
       LaTeX-arg-addbibresource)
     ;; The Bibliography
     '("printbibliography"
-      [TeX-arg-key-val '(("env") ("heading") ("title") ("prenote") ("postnote")
-			 ("section") ("segment") ("sorting") ("type") ("nottype")
-			 ("subtype") ("notsubtype") ("keyword") ("notkeyword")
-			 ("categoy") ("notcategory") ("filter") ("check")
-			 ("prefixnumbers") ("resetnumbers" ("true" "false"))
-			 ("omitnumbers" ("true" "false")))])
+      [TeX-arg-key-val (("env") ("heading") ("title") ("prenote") ("postnote")
+			("section") ("segment") ("sorting") ("type") ("nottype")
+			("subtype") ("notsubtype") ("keyword") ("notkeyword")
+			("categoy") ("notcategory") ("filter") ("check")
+			("prefixnumbers") ("resetnumbers" ("true" "false"))
+			("omitnumbers" ("true" "false")))])
     '("bibbysection"
-      [TeX-arg-key-val '(("env") ("heading") ("prenote") ("postnote"))])
+      [TeX-arg-key-val (("env") ("heading") ("prenote") ("postnote"))])
     '("bibbysegment"
-      [TeX-arg-key-val '(("env") ("heading") ("prenote") ("postnote"))])
+      [TeX-arg-key-val (("env") ("heading") ("prenote") ("postnote"))])
     '("bibbycategory"
-      [TeX-arg-key-val '(("env") ("prenote") ("postnote") ("section"))])
+      [TeX-arg-key-val (("env") ("prenote") ("postnote") ("section"))])
     '("printbibheading"
-      [TeX-arg-key-val '(("heading") ("title"))])
+      [TeX-arg-key-val (("heading") ("title"))])
     ;; The List of Shorthands
     '("printshorthands"
-      [TeX-arg-key-val '(("env") ("heading") ("title") ("prenote") ("postnote")
-			 ("section") ("segment") ("sorting") ("type") ("nottype")
-			 ("subtype") ("notsubtype") ("keyword") ("notkeyword")
-			 ("categoy") ("notcategory") ("filter") ("check"))])
+      [TeX-arg-key-val (("env") ("heading") ("title") ("prenote") ("postnote")
+			("section") ("segment") ("sorting") ("type") ("nottype")
+			("subtype") ("notsubtype") ("keyword") ("notkeyword")
+			("categoy") ("notcategory") ("filter") ("check"))])
     ;; Bibliography Sections
     '("newrefsection" ["Resources"])
     "endrefsection"
@@ -452,7 +456,24 @@ for citation keys."
     ;; Bibliography Sections
     '("refsection" ["Resources"])
     ;; Bibliography Segments
-    "refsegment")))
+    "refsegment")
+
+   ;; Declaring expert macros and environments.  Criterion: all macros and
+   ;; environments to fine tune the bibliography, probably they will be used
+   ;; only by expert users.
+   (TeX-declare-expert-macros
+    "biblatex"
+    "ExecuteBibliographyOptions" "printshorthands" "newrefsection"
+    "endrefsection" "newrefsegment" "endrefsegment"
+    "DeclareBibliographyCategory" "addtocategory" "defbibenvironment"
+    "defbibheading" "defbibnote" "defbibfilter" "defbibcheck" "defbibentryset"
+    "citereset" "citereset*" "mancite" "pno" "ppno" "nopp" "psq" "psqq" "RN"
+    "Rn" "DefineBibliographyStrings" "DefineBibliographyExtras"
+    "UndefineBibliographyExtras" "DefineHyphenationExceptions"
+    "NewBibliographyString")
+   (LaTeX-declare-expert-environments
+    "biblatex"
+    "refsection" "refsegment")))
 
 (defvar LaTeX-biblatex-package-options-list
   (append

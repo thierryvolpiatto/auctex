@@ -1,3 +1,203 @@
+2014-01-29  Tassilo Horn  <tsdh@gnu.org>
+
+	* tex-buf.el (TeX-command-query): Use default parameter of
+	`completing-read'.
+
+	* tex.el (TeX-insert-macro): Use default parameter of
+	`completing-read'.
+
+	* latex.el (LaTeX-environment, TeX-arg-document): Use default
+	parameter of `completing-read'.
+
+2014-01-22  Tassilo Horn  <tsdh@gnu.org>
+
+	* style/shortvrb.el (LaTeX-shortvrb-chars): Move from
+	tex-style.el.  Set default value to nil because just loading
+	shortvrb does not make | a shortvrb char.  One needs to define it
+	using \MakeShortVrb{\|}.  Extend the docstring so that it tells
+	that one should usually set this variable only buffer-locally.
+	(LaTeX-shortvrb-chars): Declare it as safe local variable.
+
+	* font-latex.el (font-latex-add-to-syntax-alist): Call
+	`font-latex-setup' to make syntactic font-lock changes effective.
+
+2014-01-21  Berend de Boer  <berend@pobox.com>
+
+	* context.el: distinguish between numbered and unnumbered sections.
+
+2014-01-15  Mosè Giordano  <giordano.mose@libero.it>
+
+	* style/babel.el: Update copyright years and specify last `babel'
+	version supported.
+	(LaTeX-babel-language-list): Expand language list to all languages
+	mentioned in the last version of the manual.
+	(LaTeX-babel-active-languages): Update in order to parse the
+	`main' option and ignore the modifiers.
+	(LaTeX-babel-package-options): Turn the variable into a function
+	because now requires `TeX-read-key-val'.
+
+2014-01-11  Mosè Giordano  <giordano.mose@libero.it>
+
+	* latex.el (LaTeX-current-environment): Make search for `\begin'
+	and `\end' case sensitive.
+	(docTeX-in-macrocode-p): Ditto.
+	(LaTeX-indent-calculate): Ditto.
+	(LaTeX-find-matching-end): Ditto.
+	(LaTeX-find-matching-begin): Ditto.
+
+2014-01-06  Vincent Belaïche  <vincentb1@users.sourceforge.net>
+
+	* tex-info.el (Texinfo-reftex-hook): Replace use of
+	reftex-tables-dirty by that of reftex-default-label-alist-entries
+	to trigger call to reftex-compile-variables in a standard way.
+	The problem was that generating a TOC for a Texinfo file and then
+	for a LaTeX file was not working for the LaTeX file because the
+	Texinfo file was using LaTeX label style and as such
+	reftex-ensure-compiled-variables was not calling
+	reftex-compile-variables, which caused wrong
+	reftex-everything-regexp for sections.
+
+2014-01-06  Mosè Giordano  <giordano.mose@libero.it>
+
+	* latex.el (LaTeX-math-insert): Use `TeX-electric-math' for
+	consistency with `TeX-insert-dollar'.
+	(LaTeX-math-cal): Ditto.
+
+2013-12-24  Mosè Giordano  <giordano.mose@libero.it>
+
+	* tex-style.el (LaTeX-fontspec-arg-font-search): New customizable
+	variable.
+	(LaTeX-fontspec-font-list-default): Ditto.
+
+	* style/fontspec.el (LaTeX-fontspec-arg-font): New function.
+	("fontspec"): Use it.
+
+	* doc/changes.texi: Mention `LaTeX-fontspec-arg-font-search' and
+	`LaTeX-fontspec-font-list-default'.
+
+2013-12-20  Mosè Giordano  <giordano.mose@libero.it>
+
+	* style/imakeidx.el ("imakeidx"): Move addition of options to
+	`LaTeX-imakeidx-indexsetup-options' inside the hook.
+
+	* Makefile.in (STYLESRC): Activate new styles.
+
+	* style/fontspec.el: New style.
+
+	* style/luacode.el: Ditto.
+
+	* style/metalogo.el: Ditto.
+
+	* style/unicode-math.el: Ditto.
+
+2013-12-18  Tassilo Horn  <tsdh@gnu.org>
+
+	* tex-buf.el (TeX-parse-error): Don't confuse ) in package
+	messages with EOF.
+
+2013-12-01  Tassilo Horn  <tsdh@gnu.org>
+
+	* latex.el (LaTeX-common-initialization): Move disabling of
+	`electric-pair-mode' from `VirTeX-common-initialization'.  Disable
+	it only if `LaTeX-electric-left-right-brace' is non-nil.
+
+	* tex.el (VirTeX-common-initialization): See above.
+
+2013-11-29  Tassilo Horn  <tsdh@gnu.org>
+
+	* tex.el (VirTeX-common-initialization): Disable
+	`electric-pair-mode' (a global minor mode) in auctex buffers
+	because it interferes with auctex's pairing feature.
+
+2013-11-23  Mosè Giordano  <giordano.mose@libero.it>
+
+	* latex.el (LaTeX-common-initialization):
+
+	* tex.el (VirTeX-common-initialization): Move
+	`LaTeX-narrow-to-environment' and `TeX-narrow-to-group' bindings
+	to the AUCTeX maps because `narrow-map' is not defined in GNU
+	Emacs < 22.2 and XEmacs.  Reported by Giacomo Boffi.
+
+2013-11-13  Mosè Giordano  <giordano.mose@libero.it>
+
+	* style/biblatex.el ("biblatex"): Declare expert macros and
+	environments.
+
+2013-11-11  Tassilo Horn  <tsdh@gnu.org>
+
+	* tex-buf.el (TeX-next-error, TeX-previous-error): Call
+	`next-error' also if last TeX command was a compile command (e.g.,
+	Check, ChkTeX).
+	(TeX-run-compile): Save compilation buffer in
+	`TeX-command-buffer'.
+
+2013-11-10  Ralf Angeli  <angeli@caeruleus.net>
+
+	* bib-cite.el (bib-highlight-mouse): Change regexp to cope with
+	multiple optional arguments of a macro.
+
+2013-11-09  Tassilo Horn  <tsdh@gnu.org>
+
+	* tex.el (TeX-complete-make-expert-command-functions): Change
+	signature of declare-expert functions.
+
+	* doc/auctex.texi: Document it.
+
+2013-11-08  Tassilo Horn  <tsdh@gnu.org>
+
+	* tex.el (TeX-complete-expert-commands): New defcustom.
+	(TeX-complete-make-expert-command-functions): New macro.
+	(TeX-insert-macro): Restrict completion depending on
+	`TeX-complete-expert-commands'.
+	(VirTeX-common-initialization): Ditto.
+
+	* latex.el (LaTeX-environment, LaTeX-common-initialization):
+	Restrict completion depending on `TeX-complete-expert-commands'.
+
+	* tex-info.el (TeX-texinfo-mode): Restrict completion depending on
+	`TeX-complete-expert-commands'.
+
+	* doc/auctex.texi: Document normal vs. expert commands for users
+	and style file authors.
+
+	* doc/changes.texi: Mention normal vs. expert commands.
+
+	* latex.el (LaTeX-common-initialization): Fix void-function
+	LaTeX-symbol-list error.
+
+2013-11-05  Mosè Giordano  <giordano.mose@libero.it>
+
+	* doc/auctex.texi (Folding): Document `TeX-fold-auto' and
+	`TeX-fold-unfold-around-mark'.
+
+	* latex.el (TeX-arg-bibliography): Run style files associated to
+	the bibliography database files.
+
+	* style/biblatex.el ("biblatex"): Do not quote at all
+	`TeX-arg-key-val' arguments.
+	(LaTeX-arg-addbibresource): Run style file associated to the
+	bibliography database file.
+
+2013-11-03  Mosè Giordano  <giordano.mose@libero.it>
+
+	* style/biblatex.el ("biblatex"): Quote `TeX-arg-key-val'
+	arguments with `quote' special form istead of apostrophe.
+
+2013-11-02  Mosè Giordano  <giordano.mose@libero.it>
+
+	* latex.el (LaTeX-narrow-to-environment): New function, disabled
+	by default.
+	(LaTeX-common-initialization): Add key binding for
+	`LaTeX-narrow-to-environment'.
+
+	* tex.el (VirTeX-common-initialization): Add key binding for
+	`TeX-narrow-to-group'.
+	(TeX-narrow-to-group): New function, disabled by default.
+
+	* doc/auctex.texi (Narrowing): Document narrowing commands.
+
+	* doc/changes.texi: Mention narrowing commands.
+
 2013-10-19  Mosè Giordano  <giordano.mose@libero.it>
 
 	* latex.el (TeX-arg-file-name): New function.

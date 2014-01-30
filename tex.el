@@ -2515,6 +2515,59 @@ FORCE is not nil."
   "*Function to call for completing non-macros in `tex-mode'."
   :group 'TeX-macro)
 
+(defcustom TeX-complete-expert-commands nil
+  "Complete macros and environments marked as expert commands.
+
+Possible values are nil, t, or a list of style names.
+
+  - nil           Don't complete expert commands (default).
+  - t             Always complete expert commands.
+  - (STYLES ...)  Only complete expert commands of STYLES."
+  :group 'TeX-macro
+  :type '(choice (const  :tag "Don't complete expert commands" nil)
+		 (const  :tag "Always complete expert commands" t)
+		 (repeat :tag "Complete expert commands of certain styles" string)))
+
+(defmacro TeX-complete-make-expert-command-functions (thing list-var prefix)
+  (let* ((plural (concat thing "s"))
+	 (upcase (upcase thing))
+	 (upcase-plural (upcase plural)))
+    `(progn
+       (defvar ,(intern (format "%s-expert-%s-table" prefix thing))
+	 (make-hash-table :test 'equal)
+	 ,(format "A hash-table mapping %s names to the style name providing it.
+
+A %s occuring in this table is considered an expert %s and
+treated specially in the completion." thing thing thing))
+
+       (defun ,(intern (format "%s-declare-expert-%s" prefix plural)) (style &rest ,(intern plural))
+	 ,(format "Declare %s as expert %s of STYLE.
+
+Expert %s are completed depending on `TeX-complete-expert-commands'."
+		  upcase-plural plural plural)
+	 (dolist (x ,(intern plural))
+	   (if (null style)
+	       (remhash x TeX-expert-macro-table)
+	     (puthash x style TeX-expert-macro-table))))
+
+       (defun ,(intern (format "%s-filtered" list-var)) ()
+	 ,(format "Return (%s) filtered depending on `TeX-complete-expert-commands'."
+		  list-var)
+	 (delq nil
+	       (mapcar
+		(lambda (entry)
+		  (if (eq t TeX-complete-expert-commands)
+		      entry
+		    (let* ((cmd (car entry))
+			   (style (gethash cmd TeX-expert-macro-table)))
+		      (when (or (null style)
+				(member style TeX-complete-expert-commands))
+			entry))))
+		(,list-var)))))))
+
+(TeX-complete-make-expert-command-functions "macro" TeX-symbol-list "TeX")
+(TeX-complete-make-expert-command-functions "environment" LaTeX-environment-list "LaTeX")
+
 (defvar TeX-complete-list nil
   "List of ways to complete the preceding text.
 
@@ -2656,12 +2709,10 @@ is called with \\[universal-argument]."
 					      TeX-default-macro
 					      "): "
 					      TeX-esc)
-				      (TeX-symbol-list) nil nil nil
+				      (TeX-symbol-list-filtered) nil nil nil
 				      'TeX-macro-history TeX-default-macro)))
-  (cond ((string-equal symbol "")
-	 (setq symbol TeX-default-macro))
-	((interactive-p)
-	 (setq TeX-default-macro symbol)))
+  (when (interactive-p)
+    (setq TeX-default-macro symbol))
   (TeX-parse-macro symbol (cdr-safe (assoc symbol (TeX-symbol-list))))
   (run-hooks 'TeX-after-insert-macro-hook))
 
@@ -3074,7 +3125,8 @@ The algorithm is as follows:
   (make-local-variable 'TeX-complete-list)
   (setq TeX-complete-list
 	(list (list "\\\\\\([a-zA-Z]*\\)"
-		    1 'TeX-symbol-list (if TeX-insert-braces "{}"))
+		    1 'TeX-symbol-list-filtered
+		    (if TeX-insert-braces "{}"))
 	      (list "" TeX-complete-word)))
 
   (funcall TeX-install-font-lock)
@@ -3086,6 +3138,8 @@ The algorithm is as follows:
     (add-hook 'write-file-hooks 'TeX-safe-auto-write))
   (make-local-variable 'TeX-auto-update)
   (setq TeX-auto-update t)
+
+  (define-key TeX-mode-map "\C-xng" 'TeX-narrow-to-group)
 
   ;; Minor modes
   (when TeX-source-correlate-mode
@@ -3944,6 +3998,24 @@ If optional argument STRIP is non-nil, remove file extension."
 					       dir) t)))))
 	    (append local-files (TeX-search-files dirs exts nodir strip)))))))
 
+;;; Narrowing
+
+(defun TeX-narrow-to-group ()
+  "Make text outside current group invisible."
+  (interactive)
+  (save-excursion
+    (widen)
+    (let ((opoint (point))
+	  beg end)
+      (if (null (search-backward "{" nil t))
+	  (message "Nothing to be narrowed here.")
+	(setq beg (point))
+	(forward-sexp)
+	(setq end (point))
+	(if (< end opoint)
+	    (message "Nothing to be narrowed here.")
+	  (narrow-to-region beg end))))))
+(put 'TeX-narrow-to-group 'disabled t)
 
 ;;; Utilities
 ;;

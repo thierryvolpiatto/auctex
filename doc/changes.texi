@@ -11,6 +11,15 @@
 
 @itemize @bullet
 @item
+Style file authors are encouraged to distinguish common from expert
+macros/environments, and mark the latter using
+@code{TeX-declare-expert-macros} and
+@code{LaTeX-declare-expert-environments}.
+
+Users can then restrict completion using
+@code{TeX-complete-expert-commands}.
+
+@item
 Management of @LaTeX{} package options in the parser was improved.  You
 might need to reparse your documents, especially if you loaded the
 @samp{babel} package with language options.
@@ -30,8 +39,9 @@ Completion for class options of the standard @LaTeX{} classes is
 provided as well.
 
 @item
-New user options @code{LaTeX-default-author} and
-@code{TeX-insert-braces-alist}.  A new possible value
+New user options @code{LaTeX-default-author},
+@code{TeX-insert-braces-alist}, @code{LaTeX-fontspec-arg-font-search},
+and @code{LaTeX-fontspec-font-list-default}.  A new possible value
 (@code{show-all-optional-args}) for
 @code{TeX-insert-macro-default-style} was added.
 
@@ -73,6 +83,10 @@ Tabular-like environments (tabular, tabular*, tabularx, tabulary, array,
 align, ...) are indented in a nicer and more informative way when the
 column values of a table line are written across multiple lines in the
 tex file.
+
+@item
+Commands for narrowing to a group (@code{TeX-narrow-to-group}) and to
+@LaTeX{} environments (@code{LaTeX-narrow-to-environment}) were added.
 @end itemize
 
 @heading News since 11.87
