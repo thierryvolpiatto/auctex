@@ -538,11 +538,14 @@ It may be customized with the following variables:
 			 (string-equal (LaTeX-current-environment) "document"))
 		    LaTeX-default-document-environment)
 		   (t LaTeX-default-environment)))
-    (environment (completing-read (concat "Environment type: (default "
-					  default ") ")
-				  (LaTeX-environment-list-filtered) nil nil nil
-				  'LaTeX-environment-history default)))
-    (setq LaTeX-default-environment environment)
+	 (environment (completing-read (concat "Environment type: (default "
+					       default ") ")
+				       (LaTeX-environment-list-filtered) nil nil
+				       nil 'LaTeX-environment-history default)))
+    ;; Use `environment' as default for the next time only if it is different
+    ;; from the current default.
+    (unless (equal environment default)
+      (setq LaTeX-default-environment environment))
 
     (let ((entry (assoc environment (LaTeX-environment-list))))
       (if (null entry)
@@ -771,7 +774,9 @@ To insert a hook here, you must insert it in the appropiate style file.")
 
 (defun LaTeX-env-document (&optional ignore)
   "Create new LaTeX document.
-Also inserts a \\documentclass macro if there's none already
+Also inserts a \\documentclass macro if there's none already and
+prompts for the insertion of \\usepackage macros.
+
 The compatibility argument IGNORE is ignored."
   ;; just assume a single valid \\documentclass, i.e., one not in a
   ;; commented line
@@ -787,6 +792,9 @@ The compatibility argument IGNORE is ignored."
       (TeX-insert-macro "documentclass")
       (LaTeX-newline)
       (LaTeX-newline)
+      ;; Add a newline only if some `\usepackage' has been inserted.
+      (if (LaTeX-insert-usepackages)
+	  (LaTeX-newline))
       (LaTeX-newline)
       (end-of-line 0)))
   (LaTeX-insert-environment "document")
@@ -1149,6 +1157,21 @@ You may use `LaTeX-item-list' to change the routines used to insert the item."
 
 ;;; Parser
 
+(defvar LaTeX-auto-style nil)
+(defvar LaTeX-auto-arguments nil)
+(defvar LaTeX-auto-optional nil)
+(defvar LaTeX-auto-env-args nil)
+
+(TeX-auto-add-type "label" "LaTeX")
+(TeX-auto-add-type "bibitem" "LaTeX")
+(TeX-auto-add-type "environment" "LaTeX")
+(TeX-auto-add-type "bibliography" "LaTeX" "bibliographies")
+(TeX-auto-add-type "index-entry" "LaTeX" "index-entries")
+(TeX-auto-add-type "pagestyle" "LaTeX")
+(TeX-auto-add-type "counter" "LaTeX")
+(TeX-auto-add-type "length" "LaTeX")
+(TeX-auto-add-type "savebox" "LaTeX" "saveboxes")
+
 (defvar LaTeX-auto-minimal-regexp-list
   '(("\\\\document\\(style\\|class\\)\
 \\(\\[\\(\\([^#\\%]\\|%[^\n\r]*[\n\r]\\)*\\)\\]\\)?\
@@ -1481,16 +1504,6 @@ The value is actually the tail of the list of options given to PACKAGE."
 	LaTeX-auto-end-symbol))
 
 (add-hook 'TeX-auto-cleanup-hook 'LaTeX-auto-cleanup)
-
-(TeX-auto-add-type "label" "LaTeX")
-(TeX-auto-add-type "bibitem" "LaTeX")
-(TeX-auto-add-type "environment" "LaTeX")
-(TeX-auto-add-type "bibliography" "LaTeX" "bibliographies")
-(TeX-auto-add-type "index-entry" "LaTeX" "index-entries")
-(TeX-auto-add-type "pagestyle" "LaTeX")
-(TeX-auto-add-type "counter" "LaTeX")
-(TeX-auto-add-type "length" "LaTeX")
-(TeX-auto-add-type "savebox" "LaTeX" "saveboxes")
 
 (fset 'LaTeX-add-bibliographies-auto
       (symbol-function 'LaTeX-add-bibliographies))
@@ -1869,9 +1882,12 @@ OPTIONAL and IGNORE are ignored."
 
 To insert a hook here, you must insert it in the appropiate style file.")
 
-(defun LaTeX-arg-usepackage (optional)
-  "Insert arguments to usepackage.
-OPTIONAL is ignored."
+(defun LaTeX-arg-usepackage-read-packages-with-options ()
+  "Read the packages and the options for the usepackage macro.
+
+If at least one package is provided, this function returns a cons
+cell, whose CAR is the list of packages and the CDR is the string
+of the options, nil otherwise."
   (let* ((TeX-file-extensions '("sty"))
 	 (crm-separator ",")
 	 packages var options)
@@ -1886,37 +1902,69 @@ OPTIONAL is ignored."
 				 'texinputs 'global t t))))))
     (setq packages (TeX-completing-read-multiple
 		    "Packages: " TeX-global-input-files))
-    ;; Clean up hook before use.
+    ;; Clean up hook before use in `LaTeX-arg-usepackage-insert'.
     (setq LaTeX-after-usepackage-hook nil)
     (mapc 'TeX-run-style-hooks packages)
-    (setq var (if (= 1 (length packages))
-		  (intern (format "LaTeX-%s-package-options" (car packages)))
-		;; Something like `\usepackage[options]{pkg1,pkg2,pkg3,...}' is
-		;; allowed (provided that pkg1, pkg2, pkg3, ... accept same
-		;; options).  When there is more than one package, set `var' to
-		;; a dummy value so next `if' enters else form.
-		t))
-    (if (or (and (boundp var)
-		 (listp (symbol-value var)))
-	    (fboundp var))
-	(if (functionp var)
-	    (setq options (funcall var))
-	  (when (symbol-value var)
-	    (setq options
-		  (mapconcat 'identity
-			     (TeX-completing-read-multiple
-			      "Options: " (mapcar 'list (symbol-value var)))
-			     ","))))
-      (setq options (read-string "Options: ")))
-    (unless (zerop (length options))
-      (let ((opts (LaTeX-listify-package-options options)))
-	(mapc (lambda (elt)
-		(TeX-add-to-alist 'LaTeX-provided-package-options
-				  (list (cons elt opts))))
-	      packages))
-      (insert LaTeX-optop options LaTeX-optcl))
-    (insert TeX-grop (mapconcat 'identity packages ",") TeX-grcl)
-    (run-hooks 'LaTeX-after-usepackage-hook)))
+    ;; Prompt for options only if at least one package has been supplied, return
+    ;; nil otherwise.
+    (unless (equal packages '(""))
+      (setq var (if (= 1 (length packages))
+		    (intern (format "LaTeX-%s-package-options" (car packages)))
+		  ;; Something like `\usepackage[options]{pkg1,pkg2,pkg3,...}' is
+		  ;; allowed (provided that pkg1, pkg2, pkg3, ... accept same
+		  ;; options).  When there is more than one package, set `var' to
+		  ;; a dummy value so next `if' enters else form.
+		  t))
+      (if (or (and (boundp var)
+		   (listp (symbol-value var)))
+	      (fboundp var))
+	  (if (functionp var)
+	      (setq options (funcall var))
+	    (when (symbol-value var)
+	      (setq options
+		    (mapconcat 'identity
+			       (TeX-completing-read-multiple
+				"Options: " (mapcar 'list (symbol-value var)))
+			       ","))))
+	(setq options (read-string "Options: ")))
+      (cons packages options))))
+
+(defun LaTeX-arg-usepackage-insert (packages options)
+  "Actually insert arguments to usepackage."
+  (unless (zerop (length options))
+    (let ((opts (LaTeX-listify-package-options options)))
+      (mapc (lambda (elt)
+	      (TeX-add-to-alist 'LaTeX-provided-package-options
+				(list (cons elt opts))))
+	    packages))
+    (insert LaTeX-optop options LaTeX-optcl))
+  (insert TeX-grop (mapconcat 'identity packages ",") TeX-grcl)
+  (run-hooks 'LaTeX-after-usepackage-hook))
+
+(defun LaTeX-arg-usepackage (optional)
+  "Insert arguments to usepackage.
+OPTIONAL is ignored."
+  (let* ((packages-options (LaTeX-arg-usepackage-read-packages-with-options))
+	 (packages (car packages-options))
+	 (options (cdr packages-options)))
+    (LaTeX-arg-usepackage-insert packages options)))
+
+(defun LaTeX-insert-usepackages ()
+  "Prompt for the insertion of usepackage macros until empty
+input is reached.
+
+Return t if at least one \\usepackage has been inserted, nil
+otherwise."
+  (let (packages-options packages options (inserted nil))
+    (while (setq packages-options
+		 (LaTeX-arg-usepackage-read-packages-with-options))
+      (setq packages (car packages-options))
+      (setq options (cdr packages-options))
+      (insert TeX-esc "usepackage")
+      (LaTeX-arg-usepackage-insert packages options)
+      (LaTeX-newline)
+      (setq inserted t))
+    inserted))
 
 (defcustom LaTeX-search-files-type-alist
   '((texinputs "${TEXINPUTS.latex}" ("tex/generic/" "tex/latex/")

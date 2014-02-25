@@ -827,6 +827,9 @@ specific document.  This is achieved by examining your
 @samp{\documentclass} command, and consulting a precompiled list of
 environments available in a large number of styles.
 
+Most of these are described further in the following sections, and you
+may easily specify more.  @xref{Customizing Environments}.
+
 You insert an environment with @kbd{C-c C-e}, and select an environment
 type.  Depending on the environment, @AUCTeX{} may ask more questions
 about the optional parts of the selected environment type.  With
@@ -864,10 +867,11 @@ to @code{frame}, in @file{letter.el} to @code{letter}, and in
 @end defvar
 
 If the document is empty, or the cursor is placed at the top of the
-document, @AUCTeX{} will default to insert a `document' environment.
-
-Most of these are described further in the following sections, and you
-may easily specify more.  @xref{Customizing Environments}.
+document, @AUCTeX{} will default to insert a @samp{document} environment
+prompting also for the insertion of @samp{\documentclass} and
+@samp{\usepackage} macros.  You will be prompted for a new package until
+you enter nothing.  If you do not want to insert any @samp{\usepackage}
+at all, just press @key{RET} at the first @samp{Packages} prompt.
 
 @AUCTeX{} distinguishes normal and expert environments.  By default, it
 will offer completion only for normal environments.  This behavior is
@@ -2843,6 +2847,23 @@ command can either be a variable or a string.  An empty string or nil
 means there is no command available.
 @end defopt
 
+As shown above, @AUCTeX{} handles in a special way most of the main
+options that can be given to the @TeX{} processors.  When you need to
+pass to the @TeX{} processor arbitrary options not handled by @AUCTeX,
+you can use the file local variable @code{TeX-command-extra-options}.
+@defopt TeX-command-extra-options
+String with the extra options to be given to the TeX processor.  For
+example, if you need to enable the shell escape feature to compile a
+document, add the following line to the list of local variables of the
+source file:
+@example
+%%% TeX-command-extra-options: "-shell-escape"
+@end example
+By default this option is not safe as a file-local variable because a
+specially crafted document compiled with shell escape enabled can be
+used for malicious purposes.
+@end defopt
+
 You can customize @AUCTeX{} to show the processor output as it is
 produced.
 
@@ -3687,6 +3708,7 @@ The following style files are recognized:
 @vindex TeX-language-bg-hook
 @vindex TeX-language-cz-hook
 @vindex TeX-language-dk-hook
+@vindex TeX-language-en-hook
 @vindex TeX-language-nl-hook
 @vindex TeX-language-de-hook
 @vindex TeX-language-it-hook
@@ -3699,6 +3721,7 @@ The following style files are recognized:
 @cindex Italian
 @cindex Danish
 @cindex Dutch
+@cindex English
 @cindex German
 @cindex Polish
 @cindex Slovak
@@ -3727,13 +3750,8 @@ in the composing words.
 @item dutch
 Runs style hook @code{TeX-language-nl-hook}.
 
-@item german
-@itemx ngerman
-Runs style hook @code{TeX-language-de-hook}.  Gives @samp{"} word
-syntax, makes the @key{"} key insert a literal @samp{"}.  Pressing the
-key twice will give you opening or closing German quotes (@samp{"`} or
-@samp{"'}).  Typing @key{-} twice will insert @samp{"=}, three times
-@samp{--}.
+@item english
+Runs style hook @code{TeX-language-en-hook}.
 
 @item frenchb
 @itemx francais
@@ -3741,6 +3759,14 @@ Runs style hook @code{TeX-language-fr-hook}.  Pressing @key{"} will
 insert @samp{\\og} and @samp{\\fg} depending on context.  Note that the
 language name for customizing @code{TeX-quote-language-alist} is
 @samp{french}.
+
+@item german
+@itemx ngerman
+Runs style hook @code{TeX-language-de-hook}.  Gives @samp{"} word
+syntax, makes the @key{"} key insert a literal @samp{"}.  Pressing the
+key twice will give you opening or closing German quotes (@samp{"`} or
+@samp{"'}).  Typing @key{-} twice will insert @samp{"=}, three times
+@samp{--}.
 
 @item icelandic
 Runs style hook @code{TeX-language-is-hook}.  Gives @samp{"} word

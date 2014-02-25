@@ -93,7 +93,7 @@ If nil, none is specified."
   :type '(choice (const :tag "Unspecified" nil)
 		 string))
 ;; At least in TeXLive 2009 ConTeXt does not support an omega option anymore.
-(make-obsolete-variable 'ConTeXt-Omega-engine 'TeX-engine-alist)
+(make-obsolete-variable 'ConTeXt-Omega-engine 'TeX-engine-alist "11.86")
 
 (defcustom TeX-mode-hook nil
   "A hook run in TeX mode buffers."
@@ -112,24 +112,24 @@ If nil, none is specified."
 ;; TeX-expand-list for a description of the % escapes
 
 (defcustom TeX-command-list
-  `(("TeX" "%(PDF)%(tex) %`%S%(PDFout)%(mode)%' %t"
+  `(("TeX" "%(PDF)%(tex) %(extraopts) %`%S%(PDFout)%(mode)%' %t"
      TeX-run-TeX nil
      (plain-tex-mode ams-tex-mode texinfo-mode) :help "Run plain TeX")
     ("LaTeX" "%`%l%(mode)%' %t"
      TeX-run-TeX nil
      (latex-mode doctex-mode) :help "Run LaTeX")
 	;; Not part of standard TeX.
-    ("Makeinfo" "makeinfo %t" TeX-run-compile nil
+    ("Makeinfo" "makeinfo %(extraopts) %t" TeX-run-compile nil
      (texinfo-mode) :help "Run Makeinfo with Info output")
-    ("Makeinfo HTML" "makeinfo --html %t" TeX-run-compile nil
+    ("Makeinfo HTML" "makeinfo %(extraopts) --html %t" TeX-run-compile nil
      (texinfo-mode) :help "Run Makeinfo with HTML output")
-    ("AmSTeX" "%(PDF)amstex %`%S%(PDFout)%(mode)%' %t"
+    ("AmSTeX" "%(PDF)amstex %(extraopts) %`%S%(PDFout)%(mode)%' %t"
      TeX-run-TeX nil (ams-tex-mode) :help "Run AMSTeX")
     ;; support for ConTeXt  --pg
     ;; first version of ConTeXt to support nonstopmode: 2003.2.10
-    ("ConTeXt" "texexec --once --texutil %(execopts)%t"
+    ("ConTeXt" "texexec --once --texutil %(extraopts) %(execopts)%t"
      TeX-run-TeX nil (context-mode) :help "Run ConTeXt once")
-    ("ConTeXt Full" "texexec %(execopts)%t"
+    ("ConTeXt Full" "texexec %(extraopts) %(execopts)%t"
      TeX-run-TeX nil
      (context-mode) :help "Run ConTeXt until completion")
     ("BibTeX" "bibtex %s" TeX-run-BibTeX nil t :help "Run BibTeX")
@@ -301,7 +301,7 @@ The executable `latex' is LaTeX version 2e."
 
 (defcustom LaTeX-command-style
   ;; They have all been combined in LaTeX 2e.
-  '(("" "%(PDF)%(latex) %S%(PDFout)"))
+  '(("" "%(PDF)%(latex) %(extraopts) %S%(PDFout)"))
 "List of style options and LaTeX commands.
 
 If the first element (a regular expression) matches the name of one of
@@ -408,6 +408,11 @@ string."
   :group 'TeX-command
   :type '(repeat (group regexp (string :tag "Command"))))
 
+(defcustom TeX-command-extra-options ""
+  "String with the extra options to be given to the TeX processor."
+  :type 'string)
+(make-variable-buffer-local 'TeX-command-extra-options)
+
 ;; This is the list of expansion for the commands in
 ;; TeX-command-list.  Not likely to be changed, but you may e.g. want
 ;; to handle .ps files.
@@ -455,6 +460,7 @@ string."
     ("%(tex)" (lambda () (eval (nth 2 (assq TeX-engine (TeX-engine-alist))))))
     ("%(latex)" (lambda () (eval (nth 3 (assq TeX-engine (TeX-engine-alist))))))
     ("%(execopts)" ConTeXt-expand-options)
+    ("%(extraopts)" (lambda () TeX-command-extra-options))
     ("%S" TeX-source-correlate-expand-options)
     ("%dS" TeX-source-specials-view-expand-options)
     ("%cS" TeX-source-specials-view-expand-client)
@@ -1376,8 +1382,8 @@ For available TYPEs, see variable `TeX-engine'."
   :group 'TeX-command
   (TeX-engine-set (if TeX-Omega-mode 'omega 'default)))
 (defalias 'tex-omega-mode 'TeX-Omega-mode)
-(make-obsolete 'TeX-Omega-mode 'TeX-engine-set)
-(make-obsolete-variable 'TeX-Omega-mode 'TeX-engine)
+(make-obsolete 'TeX-Omega-mode 'TeX-engine-set "11.86")
+(make-obsolete-variable 'TeX-Omega-mode 'TeX-engine "11.86")
 
 ;;; Forward and inverse search
 
@@ -1563,7 +1569,7 @@ SyncTeX are recognized."
 	  (when TeX-source-correlate-mode
 	    'TeX-synctex-output-page))))
 (defalias 'TeX-source-specials-mode 'TeX-source-correlate-mode)
-(make-obsolete 'TeX-source-specials-mode 'TeX-source-correlate-mode)
+(make-obsolete 'TeX-source-specials-mode 'TeX-source-correlate-mode "11.86")
 (defalias 'tex-source-correlate-mode 'TeX-source-correlate-mode)
 (put 'TeX-source-correlate-mode 'safe-local-variable 'TeX-booleanp)
 ;; We do not want the custom variable to require tex.el.  This is only
@@ -3203,39 +3209,6 @@ The algorithm is as follows:
 (defconst TeX-auto-parser-local 3)
 (defconst TeX-auto-parser-change 4)
 
-(defun TeX-auto-add-type (name prefix &optional plural)
-  "Add information about NAME to the parser using PREFIX.
-
-Optional third argument PLURAL is the plural form of TYPE.
-By default just add an `s'.
-
-This function create a set of variables and functions to maintain a
-separate type of information in the parser."
-  (let* ((names (or plural (concat name "s")))
-	 (tmp (intern (concat prefix "-auto-" name)))
-	 (add (intern (concat prefix "-add-" names)))
-	 (local (intern (concat prefix "-" name "-list")))
-	 (change (intern (concat prefix "-" name "-changed"))))
-    ;; Append new type to `TeX-auto-parser' in order to make `style' type always
-    ;; the first.
-    (add-to-list 'TeX-auto-parser (list name tmp add local change) t)
-    (set local nil)
-    (make-variable-buffer-local local)
-    (set change nil)
-    (make-variable-buffer-local change)
-    (fset add `(lambda (&rest entries)
-		 ,(concat "Add information about " (upcase name)
-			  " to the current buffer.
-Generated by `TeX-auto-add-type'.")
-		 (TeX-auto-add-information ,name entries)))
-    (fset local `(lambda nil
-		   ,(concat "List of " names
-			    " active in the current buffer.
-Generated by `TeX-auto-add-type'.")
-		   (TeX-auto-list-information ,name)))
-    (add-hook 'TeX-remove-style-hook
-	      `(lambda nil (setq ,(symbol-name local) nil)))))
-
 (defun TeX-auto-add-information (name entries)
   "For NAME in `TeX-auto-parser' add ENTRIES."
   (let* ((entry (assoc name TeX-auto-parser))
@@ -3278,6 +3251,45 @@ Generated by `TeX-auto-add-type'.")
 	      (setcdr entry (cdr (cdr entry)))))))
       (message "Removing duplicates... done"))
     (symbol-value local)))
+
+(defmacro TeX-auto-add-type (name prefix &optional plural)
+  "Add information about NAME to the parser using PREFIX.
+
+Optional third argument PLURAL is the plural form of TYPE.
+By default just add an `s'.
+
+This function create a set of variables and functions to maintain a
+separate type of information in the parser."
+  (let* ((names (or plural (concat name "s")))
+	 (tmp (intern (concat prefix "-auto-" name)))
+	 (add (intern (concat prefix "-add-" names)))
+	 (local (intern (concat prefix "-" name "-list")))
+	 (change (intern (concat prefix "-" name "-changed")))
+	 (vardoc (concat "Information about " names
+			  " in the current buffer.
+Generated by `TeX-auto-add-type'.")))
+    `(progn
+       (defvar ,tmp nil ,vardoc)
+       (defvar ,local nil ,vardoc)
+       (make-variable-buffer-local ',local)
+       (defvar ,change nil ,vardoc)
+       (make-variable-buffer-local ',change)
+       (defun ,add (&rest ,(intern names))
+	 ,(concat "Add information about " (upcase names)
+		  " to the current buffer.
+Generated by `TeX-auto-add-type'.")
+	 (TeX-auto-add-information ,name ,(intern names)))
+       (defun ,local ()
+	 ,(concat "List of " names
+		  " active in the current buffer.
+Generated by `TeX-auto-add-type'.")
+	 (TeX-auto-list-information ,name))
+       ;; Append new type to `TeX-auto-parser' in order to make `style' type
+       ;; always the first.
+       (add-to-list 'TeX-auto-parser ',(list name tmp add local change) t)
+       (add-hook 'TeX-remove-style-hook
+		 (lambda ()
+		   (setq ,local nil))))))
 
 (TeX-auto-add-type "symbol" "TeX")
 
